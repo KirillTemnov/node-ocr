@@ -5,18 +5,20 @@ Main wrapper module
 OcrHost  = "cloud.ocrsdk.com"
 AppId    = process.env.ABBYY_APPID || "app-id-here"
 AppPass  = process.env.ABBYY_PWD || "app-passwd-here"
+Port     = "443"
 
-http     = require "http"
-fs       = require "fs"
-sys      = require "util"
-xml2json = require "xml2json"
+http      = require "http"
+fs        = require "fs"
+sys       = require "util"
+xml2json  = require "xml2json"
+url       = require "url"
 
 
 class OCR
 
-  _createOptions: (path, method, headers={}, port="80") ->
+  _createOptions: (path, method, headers={}, port="80", host=OcrHost) ->
     opts =
-      host    : OcrHost
+      host    : host
       port    : port
       path    : path
       method  : method
@@ -26,10 +28,18 @@ class OCR
       opts.headers.Authorization = "Basic " + new Buffer("#{AppId}:#{AppPass}").toString "base64"
     opts
 
+  _createOtionsFromUrl: (fullpath, method, headers) ->
+    method   ||= "GET"
+    parsedUrl  = url.parse fullpath
+    port       = if parsedUrl.protocol is "https" then "443" else "80"
+    @_createOptions parsedUrl.path, method, headers, port, parsedUrl.host
+
+
   _getServerAnswer: (opts, fn) ->
     resData = ""
     req = http.request opts, (res) ->
-      res.setEncoding "utf8"
+      unless opts.noEncoding
+        res.setEncoding "utf8"
       res.on "data", (chunk) ->
         resData += chunk
       res.on "end", ->
@@ -47,13 +57,17 @@ class OCR
   # api wrapper
   # --------------------------------------------------------------------------------
 
-  getTaskStatus: (taskId) ->
+  getTaskStatus: (taskId, fn) ->
     getOpts =  @_createOptions "/getTaskStatus?taskId=#{taskId}", "get"
     @_getServerAnswer getOpts, (err, data) ->
       unless err
-        console.log "data = #{data}"
+        try
+          fn null, JSON.parse(xml2json.toJson data).response
+        catch e
+          fn msg: "can't parse status for task #{taskId}"
       else
-        console.log "err = #{err}"
+        fn msg: "server error"
+
 
 
   listTasks: (fn) ->
@@ -61,7 +75,7 @@ class OCR
     @_getServerAnswer getOpts, (err, data) ->
       unless err
         try
-          fn null, JSON.parse xml2json.toJson data
+          fn null, JSON.parse(xml2json.toJson data).response
         catch e
           fn msg: "can't parse list of tasks"
       else
@@ -76,23 +90,22 @@ class OCR
       fn msg: "can't read file #{filename}"
 
   applyToBuffer: (buffer, opts={}, fn) ->
-    opts.output ||= "txt"
+    opts.outputFormat ||= "txt"
+    timeout = opts.requestTimeout || 1000 # 1 second
     opts.lang ||= ["russian", "english"]
     if opts.lang instanceof Array
       opts.lang = opts.lang.join ","
 
     boundary = @_generateBoundary()
-    postOpts = @_createOptions  "/processImage?exportFormat=#{opts.output}&language=#{opts.lang}", "POST",
+    postOpts = @_createOptions  "/processImage?exportFormat=#{opts.outputFormat}&language=#{opts.lang}", "POST",
         {"Content-Type" : "multipart/form-data; boundary= #{boundary}"
         "Content-Length" : buffer.length}
 
     postReq = @_getServerAnswer postOpts, (err, data) ->
       unless err
-        console.log "data = #{data}"
         id = data.match /task id=\"[-a-f\d]+\"/ig
         if id
           fn null, id[0][9..-2]
-
         else
           msg = data.match /message .*\>.*\<\/message/ig
           if msg
@@ -102,11 +115,58 @@ class OCR
       else
         fn err
 
-
-
     postReq.write buffer
     postReq.write boundary
     postReq.end()
+
+  waitTaskEnd: (taskId, opts, fn) ->
+    if "function" is typeof opts
+      fn    = opts
+      opts  = null
+
+    opts   ||= {}
+    timeout  = opts.timeout or 1000
+    format   = opts.outputFormat or "txt"
+    errors   = 0
+    downloadInProcess = no
+
+    nextTick = =>
+      @getTaskStatus taskId, (err, status) =>
+        unless downloadInProcess
+          unless err
+            if status?.task?.status?.toLowerCase() is "completed"
+              downloadInProcess = yes
+              resultUrl = status?.task?.resultUrl
+
+              if resultUrl
+                # if textual format, download txt or return url
+                if format is "txt"
+                  getOpts =  @_createOtionsFromUrl resultUrl, "GET", no
+                  delete getOpts.headers.Authorization
+                  getOpts.noEncoding = yes
+#                  console.log "\n\nGO = #{sys.inspect getOpts}"
+                  @_getServerAnswer getOpts, (err, data) ->
+                    unless err
+                      try
+                        conv = new iconv.Iconv "windows-1251", "utf8"
+                        body = conv.convert(new Buffer(data, 'binary')).toString()
+                        fn null, resultUrl: resultUrl, text: body
+                      catch e
+                        fn msg: "error", resultUrl: resultUrl
+                    else
+                      fn msg: "error downloading file", resultUrl: resultUrl
+                else
+                  fn null, {resultUrl: resultUrl}
+            else if status?.task?.status?.toLowerCase() in ["queued" , "inprogress"]
+              setTimeout ( => nextTick()), timeout
+          else
+            errors++
+            if errors > 5
+              fn msg: "error accessing document"
+            else
+              setTimeout ( => nextTick()), timeout
+    nextTick()
+
 
 exports.createWrapper = ->  new OCR()
 
