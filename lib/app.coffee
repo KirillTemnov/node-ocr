@@ -2,25 +2,26 @@
 Main wrapper module
 ###
 
-OcrHost = "cloud.ocrsdk.com"
-AppId = process.env.ABBYY_APPID || "app-id-here"
-AppPass = process.env.ABBYY_PWD || "app-passwd-here"
+OcrHost  = "cloud.ocrsdk.com"
+AppId    = process.env.ABBYY_APPID || "app-id-here"
+AppPass  = process.env.ABBYY_PWD || "app-passwd-here"
 
-http = require "http"
-fs = require "fs"
-sys = require "util"
+http     = require "http"
+fs       = require "fs"
+sys      = require "util"
+xml2json = require "xml2json"
+
 
 class OCR
-  constructor: ->
-    @auth = null
 
   _createOptions: (path, method, headers={}, port="80") ->
     opts =
-      host: OcrHost
-      port: port
-      path: path
-      method: method
-      headers: headers
+      host    : OcrHost
+      port    : port
+      path    : path
+      method  : method
+      headers : headers
+
     unless opts.headers.Authorization?
       opts.headers.Authorization = "Basic " + new Buffer("#{AppId}:#{AppPass}").toString "base64"
     opts
@@ -55,13 +56,16 @@ class OCR
         console.log "err = #{err}"
 
 
-  listTasks: ->
+  listTasks: (fn) ->
     getOpts = @_createOptions "/listTasks", "get"
     @_getServerAnswer getOpts, (err, data) ->
       unless err
-        console.log "data = #{data}"
+        try
+          fn null, JSON.parse xml2json.toJson data
+        catch e
+          fn msg: "can't parse list of tasks"
       else
-        console.log "err = #{err}"
+        fn msg: "server error"
 
 
   applyToFile: (filename, opts={}, fn) ->
@@ -69,7 +73,6 @@ class OCR
       buf = fs.readFileSync filename
       @applyToBuffer buf, opts, fn
     catch e
-      console.log "exception #{e}"
       fn msg: "can't read file #{filename}"
 
   applyToBuffer: (buffer, opts={}, fn) ->
@@ -88,7 +91,8 @@ class OCR
         console.log "data = #{data}"
         id = data.match /task id=\"[-a-f\d]+\"/ig
         if id
-          fn null, id[0][10..-2]
+          fn null, id[0][9..-2]
+
         else
           msg = data.match /message .*\>.*\<\/message/ig
           if msg
@@ -104,4 +108,5 @@ class OCR
     postReq.write boundary
     postReq.end()
 
-exports.ocr = OCR
+exports.createWrapper = ->  new OCR()
+
