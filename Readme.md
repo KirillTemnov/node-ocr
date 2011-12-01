@@ -4,6 +4,7 @@ node-ocr обертка для ABBYY Cloud API ( [http://ocrsdk.com/](http://ocr
 # Установка
 
   Работает с nodejs 0.6.x.
+  
 
 ```
         npm install node-ocr
@@ -13,9 +14,13 @@ node-ocr обертка для ABBYY Cloud API ( [http://ocrsdk.com/](http://ocr
 
 ## Создать объект для доступа к api
 
+
 ```coffee-script
-        ocr = require("node-ocr").createWrapper()
+        ocr = require("node-ocr").createWrapper(appId, appPwd)
 ```
+
+`appId` и `appPwd` - опциональные параметы, если не заданы, идентификатор и пароль 
+беруться из переменных окружения `ABBYY_APPID` и `ABBYY_PWD` соответственно.
 
 
 ## Получить список заданий
@@ -91,7 +96,7 @@ node-ocr обертка для ABBYY Cloud API ( [http://ocrsdk.com/](http://ocr
 
 ```coffee-script
         sys = require "util"
-        ocr = reqire("node-ocr").createWrapper()
+        ocr = require("node-ocr").createWrapper()
 
 
         opts      = outputFormat: "xml"
@@ -120,7 +125,7 @@ node-ocr обертка для ABBYY Cloud API ( [http://ocrsdk.com/](http://ocr
 
 ```javascript
         sys = require("util")
-        ocr = reqire("node-ocr").createWrapper()
+        ocr = require("node-ocr").createWrapper()
 
         opts      = {outputFormat: "txt"}  # с русским текстом пока проблемы
         filename  = "/tmp/filewithtext.png"
@@ -142,10 +147,12 @@ node-ocr обертка для ABBYY Cloud API ( [http://ocrsdk.com/](http://ocr
                    console.log("error :\n#" + sys.inspect(err));
             }
          })
-
 ```   
 
 # Changelog
+
+## v 0.1.1
+   - Ключи API можно изменить при вызове `createWrapper`
 
 ## v 0.1.0
 

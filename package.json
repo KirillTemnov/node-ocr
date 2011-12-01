@@ -1,0 +1,19 @@
+{
+  "name": "node-ocr",
+  "version": "0.1.1",
+  "description": "wrapper for abbyy finereader cloud api (now in beta).",
+  "engines": {
+   "node": ">= 0.4.0 < 0.7.0"
+  },
+  "dependencies": {"coffee-script": ">= 1.1.1", "xml2json": ">= 0.2.x"},
+  "scripts": {"postinstall": "make all"},
+  "main": "./lib/app",
+  "keywords": ["ocr", "text processing"],
+  "author": "Temnov Kirill <allselead@gmail.com>"
+}
+
+
+
+
+
+

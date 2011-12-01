@@ -1,7 +1,7 @@
-.PHONY:  all 
+.PHONY:  all clean
 
 all:
-        coffee -b -c lib/*.coffee
+	coffee -b -c lib/*.coffee
 clean:
-        rm lib/*.js
+	rm lib/*.js
 
