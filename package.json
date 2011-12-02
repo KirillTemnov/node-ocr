@@ -1,6 +1,6 @@
 {
   "name": "node-ocr",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "wrapper for abbyy finereader cloud api (now in beta).",
   "engines": {
    "node": ">= 0.4.0 < 0.7.0"

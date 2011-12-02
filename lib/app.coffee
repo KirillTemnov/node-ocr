@@ -19,7 +19,7 @@ Class that implement api calls to abbyy cloud api.
 ###
 class OCR
   constructor: (@appId=AppId, @appPass=AppPass) ->
-    @version = "0.1.1"
+    @version = "0.1.2"
 
   ###
   Create options, that passed to request object.
@@ -59,24 +59,24 @@ class OCR
     @_createOptions parsedUrl.path, method, headers, port, parsedUrl.host
 
 
-  ###
-  Get binary data from server. This method is buggy.
+  # ###
+  # Get binary data from server. This method is buggy.
 
-  @param {Object} opts Request options, @see _createOptionsFromUrl
-  @param {Function} fn Callback function, that accept 1) error (or null) 2) data.
-  ###
-  _getServerBinaryAnswer: (opts, fn) ->
-    resData = new Buffer 10485760
-    ind = 0
-    req = http.request opts, (res) ->
+  # @param {Object} opts Request options, @see _createOptionsFromUrl
+  # @param {Function} fn Callback function, that accept 1) error (or null) 2) data.
+  # ###
+  # _getServerBinaryAnswer: (opts, fn) ->
+  #   resData = new Buffer 10485760
+  #   ind = 0
+  #   req = http.request opts, (res) ->
 
-      res.setEncoding "binary"
-      res.on "data", (chunk) ->
-        ind += resData.write(chunk, ind)
-      res.on "end", ->
-        fn null, resData
-      res.on "error", (err) -> fn err
-    req.end()
+  #     res.setEncoding "binary"
+  #     res.on "data", (chunk) ->
+  #       ind += resData.write(chunk, ind)
+  #     res.on "end", ->
+  #       fn null, resData
+  #     res.on "error", (err) -> fn err
+  #   req.end()
 
 
   ###
@@ -219,12 +219,12 @@ class OCR
     getOpts =  @_createOptionsFromUrl srcUrl, "GET", no
     delete getOpts.headers.Authorization
 
-    @_getServerBinaryAnswer getOpts, (err, data) ->
+    @_getServerAnswer getOpts, (err, data) ->
       unless err
         try
           # conv = new iconv.Iconv "CP1251", "UTF8//IGNORE"
           # text = conv.convert(data).toString()
-          fn null, resultUrl: srcUrl, text: data #text
+          fn null, resultUrl: srcUrl, text: data#.toString() #text
         catch e
           fn msg: "error", resultUrl: srcUrl, error: e
       else
